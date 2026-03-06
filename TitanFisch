@@ -1,9 +1,9 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Titan Fisch 235",
+   Name = "ReyFile | FULL FIX & AUTO",
    LoadingTitle = "Đang tải cấu hình...",
-   LoadingSubtitle = "JICEO",
+   LoadingSubtitle = "by Gemini (Fix Format)",
    ConfigurationSaving = {
       Enabled = true,
       FolderName = "ReyFile_Configs",
@@ -12,83 +12,158 @@ local Window = Rayfield:CreateWindow({
    KeySystem = false
 })
 
+local vim = game:GetService("VirtualInputManager")
 local player = game.Players.LocalPlayer
-local flags = { autoSell = false }
 
--- Cấu hình tọa độ
+local flags = {
+    autoZ = false, 
+    autoX = false, 
+    autoC = false, 
+    autoD = false,
+    autoCast = false, 
+    autoSlot1Smart = false, 
+    autoSell = false
+}
+
+-- Tọa độ bán cá và biến lưu vị trí cũ
 local sellPosition = CFrame.new(170.08, 23.4, 72.58)
-local lastFishingPos = nil -- Biến lưu vị trí cũ
+local lastFishingPos = nil
 
--- Hàm Dịch Chuyển Tức Thời (Instant TP)
-local function instantTeleport(targetCFrame)
+-- Hàm Dịch Chuyển Tức Thời (Xóa đà quán tính)
+local function instantTP(targetCFrame)
     local char = player.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
         char.HumanoidRootPart.CFrame = targetCFrame
-        char.HumanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0) -- Dừng quán tính
+        char.HumanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
     end
 end
 
+-- [TAB AUTO PHÍM]
+local AutoTab = Window:CreateTab("Auto Phím", 4483345998)
+AutoTab:CreateSection("🔥 Spam phím full (Z/X/C/D)")
+
+local function startLoop(keyCode, flagName)
+    task.spawn(function()
+        while flags[flagName] do
+            vim:SendKeyEvent(true, keyCode, false, game)
+            task.wait(math.random(3, 7) / 100)
+            vim:SendKeyEvent(false, keyCode, false, game)
+            task.wait(math.random(10, 18) / 100)
+        end
+    end)
+end
+
+AutoTab:CreateToggle({
+    Name = "🚀 Auto Z", 
+    CurrentValue = false, 
+    Flag = "ToggleZFix", 
+    Callback = function(V) 
+        flags.autoZ = V 
+        if V then startLoop(Enum.KeyCode.Z, "autoZ") end 
+    end
+})
+
+AutoTab:CreateToggle({
+    Name = "⚡ Auto X", 
+    CurrentValue = false, 
+    Flag = "ToggleXFix", 
+    Callback = function(V) 
+        flags.autoX = V 
+        if V then startLoop(Enum.KeyCode.X, "autoX") end 
+    end
+})
+
+AutoTab:CreateToggle({
+    Name = "🟢 Auto C", 
+    CurrentValue = false, 
+    Flag = "ToggleCAuto", 
+    Callback = function(V) 
+        flags.autoC = V 
+        if V then startLoop(Enum.KeyCode.C, "autoC") end 
+    end
+})
+
+AutoTab:CreateToggle({
+    Name = "🔵 Auto D", 
+    CurrentValue = false, 
+    Flag = "ToggleDAuto", 
+    Callback = function(V) 
+        flags.autoD = V 
+        if V then startLoop(Enum.KeyCode.D, "autoD") end 
+    end
+})
+
+-- [TAB TITAN FISCH]
 local FischTab = Window:CreateTab("Titan Fisch", 7072742186)
-FischTab:CreateSection("💰 Auto TP Sell & Return")
+FischTab:CreateSection("🎣 Auto Farm & Sell")
 
 FischTab:CreateToggle({
-   Name = "🔄 Auto Sell & Quay lại chỗ cũ",
-   CurrentValue = false,
-   Flag = "ToggleAutoSellReturn",
-   Callback = function(Value)
-      flags.autoSell = Value
-      if Value then
-         task.spawn(function()
-            while flags.autoSell do
-               local char = player.Character
-               if char and char:FindFirstChild("HumanoidRootPart") then
-                  -- 1. Ghi nhớ vị trí đang đứng câu
-                  lastFishingPos = char.HumanoidRootPart.CFrame
-                  
-                  -- 2. TP tức thời đến nơi bán
-                  instantTeleport(sellPosition)
-                  task.wait(0.5) -- Đợi server nhận vị trí tại shop
-                  
-                  -- 3. Gửi lệnh bán
-                  local args = {{}}
-                  pcall(function()
-                     game:GetService("ReplicatedStorage"):WaitForChild("Communication"):WaitForChild("Functions"):WaitForChild("SellEverything"):InvokeServer(unpack(args))
-                  end)
-                  
-                  Rayfield:Notify({Title = "Hệ thống", Content = "Đã bán xong! Đang quay lại...", Duration = 2})
-                  task.wait(0.5) -- Đợi 1 chút sau khi bán
-                  
-                  -- 4. TP quay lại vị trí cũ
-                  if lastFishingPos then
-                     instantTeleport(lastFishingPos)
-                  end
-               end
-               
-               -- Nghỉ 15 giây trước khi lặp lại (an toàn cho account)
-               task.wait(15)
-            end
-         end)
-      end
-   end,
+    Name = "🎣 Auto Thả Cần",
+    CurrentValue = false,
+    Flag = "AutoCastFix",
+    Callback = function(Value)
+        flags.autoCast = Value
+        if Value then
+            task.spawn(function()
+                while flags.autoCast do
+                    local char = player.Character
+                    if char and char:FindFirstChildOfClass("Tool") then
+                        local mouse = player:GetMouse()
+                        vim:SendMouseButtonEvent(mouse.X, mouse.Y, 0, true, game, 0)
+                        task.wait(1)
+                        vim:SendMouseButtonEvent(mouse.X, mouse.Y, 0, false, game, 0)
+                    end
+                    task.wait(0.5)
+                end
+            end)
+        end
+    end
 })
 
-FischTab:CreateSection("📍 Tùy chỉnh nhanh")
-FischTab:CreateButton({
-   Name = "🏠 TP về vị trí câu vừa lưu",
-   Callback = function()
-      if lastFishingPos then
-         instantTeleport(lastFishingPos)
-      else
-         Rayfield:Notify({Title = "Lỗi", Content = "Chưa có vị trí cũ được lưu!", Duration = 3})
-      end
-   end,
+FischTab:CreateToggle({
+    Name = "💵 Auto Sell & Return (TP Tức Thời)",
+    CurrentValue = false,
+    Flag = "ToggleAutoSellReturn",
+    Callback = function(Value)
+        flags.autoSell = Value
+        if Value then
+            task.spawn(function()
+                while flags.autoSell do
+                    local char = player.Character
+                    if char and char:FindFirstChild("HumanoidRootPart") then
+                        -- 1. Lưu vị trí cũ
+                        lastFishingPos = char.HumanoidRootPart.CFrame
+                        
+                        -- 2. TP đi bán
+                        instantTP(sellPosition)
+                        task.wait(0.5)
+                        
+                        -- 3. Gửi lệnh bán
+                        local args = {{}}
+                        pcall(function()
+                            game:GetService("ReplicatedStorage"):WaitForChild("Communication"):WaitForChild("Functions"):WaitForChild("SellEverything"):InvokeServer(unpack(args))
+                        end)
+                        
+                        Rayfield:Notify({Title = "Auto Sell", Content = "Đã bán và đang quay lại...", Duration = 2})
+                        task.wait(0.5)
+                        
+                        -- 4. TP quay lại chỗ cũ
+                        if lastFishingPos then
+                            instantTP(lastFishingPos)
+                        end
+                    end
+                    task.wait(20) -- Nghỉ 20 giây mỗi lần lặp (an toàn)
+                end
+            end)
+        end
+    end
 })
 
--- QUAN TRỌNG: Tự động Load Config
+-- QUAN TRỌNG: Tự động Load cấu hình
 Rayfield:LoadConfiguration()
 
 Rayfield:Notify({
-   Title = "Hoàn tất!",
-   Content = "Script đã sẵn sàng: Tự động bán và quay lại chỗ cũ.",
+   Title = "Fix Hoàn Tất!",
+   Content = "Code đã được tách dòng và tối ưu TP Return.",
    Duration = 5,
 })
