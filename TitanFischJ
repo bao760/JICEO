@@ -1,0 +1,129 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "ReyFile | FARM POS SETTER",
+   LoadingTitle = "Đang tải cấu hình...",
+   LoadingSubtitle = "by Gemini (Fixed TP)",
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = "ReyFile_Configs",
+      FileName = "MainConfig"
+   },
+   KeySystem = false
+})
+
+local vim = game:GetService("VirtualInputManager")
+local player = game.Players.LocalPlayer
+
+local flags = {
+    autoZ = false, autoX = false, autoC = false, autoD = false,
+    autoCast = false, autoSell = false
+}
+
+-- Cấu hình tọa độ
+local sellPosition = CFrame.new(170.08, 23.4, 72.58)
+local farmPosition = nil -- Tọa độ farm cố định do bạn chọn
+
+-- Hàm Dịch Chuyển Tức Thời
+local function instantTP(targetCFrame)
+    local char = player.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.CFrame = targetCFrame
+        char.HumanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+    end
+end
+
+-- [TAB AUTO PHÍM] - Giữ nguyên logic spam
+local AutoTab = Window:CreateTab("Auto Phím", 4483345998)
+local function startLoop(keyCode, flagName)
+    task.spawn(function()
+        while flags[flagName] do
+            vim:SendKeyEvent(true, keyCode, false, game)
+            task.wait(math.random(3, 7) / 100)
+            vim:SendKeyEvent(false, keyCode, false, game)
+            task.wait(math.random(10, 18) / 100)
+        end
+    end)
+end
+
+AutoTab:CreateToggle({Name = "🚀 Auto Z", CurrentValue = false, Flag = "TZ", Callback = function(V) flags.autoZ = V if V then startLoop(Enum.KeyCode.Z, "autoZ") end end})
+AutoTab:CreateToggle({Name = "⚡ Auto X", CurrentValue = false, Flag = "TX", Callback = function(V) flags.autoX = V if V then startLoop(Enum.KeyCode.X, "autoX") end end})
+AutoTab:CreateToggle({Name = "🟢 Auto C", CurrentValue = false, Flag = "TC", Callback = function(V) flags.autoC = V if V then startLoop(Enum.KeyCode.C, "autoC") end end})
+AutoTab:CreateToggle({Name = "🔵 Auto D", CurrentValue = false, Flag = "TD", Callback = function(V) flags.autoD = V if V then startLoop(Enum.KeyCode.D, "autoD") end end})
+
+-- [TAB TITAN FISCH]
+local FischTab = Window:CreateTab("Titan Fisch", 7072742186)
+
+FischTab:CreateSection("📍 Cài đặt Vị trí Farm")
+
+FischTab:CreateButton({
+   Name = "🚩 SET TỌA ĐỘ FARM (Đứng chỗ nào ấn chỗ đó)",
+   Callback = function()
+      local char = player.Character
+      if char and char:FindFirstChild("HumanoidRootPart") then
+          farmPosition = char.HumanoidRootPart.CFrame
+          Rayfield:Notify({
+             Title = "Thành công!",
+             Content = "Đã lưu vị trí này làm điểm Farm cố định.",
+             Duration = 4
+          })
+      end
+   end,
+})
+
+FischTab:CreateSection("💰 Auto Sell & Return")
+
+FischTab:CreateToggle({
+   Name = "💵 Bật Auto Sell (TP về điểm Farm đã Set)",
+   CurrentValue = false,
+   Flag = "ToggleAutoSellReturn",
+   Callback = function(Value)
+      flags.autoSell = Value
+      if Value then
+         task.spawn(function()
+            while flags.autoSell do
+               if farmPosition == nil then
+                  Rayfield:Notify({Title = "LỖI!", Content = "Bạn chưa Set Tọa Độ Farm! Hãy ấn nút đỏ phía trên.", Duration = 5})
+                  flags.autoSell = false
+                  break
+               end
+
+               -- 1. TP đi bán
+               instantTP(sellPosition)
+               task.wait(0.7)
+               
+               -- 2. Gửi lệnh bán
+               local args = {{}}
+               pcall(function()
+                  game:GetService("ReplicatedStorage"):WaitForChild("Communication"):WaitForChild("Functions"):WaitForChild("SellEverything"):InvokeServer(unpack(args))
+               end)
+               
+               task.wait(0.5)
+               
+               -- 3. TP quay lại Toạ độ Farm đã Set
+               instantTP(farmPosition)
+               
+               Rayfield:Notify({Title = "Hệ thống", Content = "Đã bán và quay về điểm Farm!", Duration = 2})
+               
+               task.wait(25) -- Nghỉ 25s cho an toàn
+            end
+         end)
+      end
+   end,
+})
+
+FischTab:CreateButton({
+   Name = "🏠 TP về điểm Farm ngay lập tức",
+   Callback = function()
+      if farmPosition then instantTP(farmPosition) else Rayfield:Notify({Title="Lỗi", Content="Chưa Set điểm farm!", Duration=2}) end
+   end,
+})
+
+-- TỰ ĐỘNG LOAD CONFIG
+Rayfield:LoadConfiguration()
+
+Rayfield:Notify({
+   Title = "Sẵn sàng!",
+   Content = "Hãy đứng chỗ câu cá rồi ấn 'SET TỌA ĐỘ FARM' trước khi bật Auto Sell.",
+   Duration = 7,
+})
