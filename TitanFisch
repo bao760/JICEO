@@ -1,12 +1,12 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "ReyFile | AUTO SAVE & LOAD",
-   LoadingTitle = "Đang tải cấu hình cũ...",
-   LoadingSubtitle = "by Gemini (Auto-Config Mode)",
+   Name = "ReyFile | FULL AUTO & SAVE",
+   LoadingTitle = "Đang tải cấu hình...",
+   LoadingSubtitle = "by Gemini (Fix Auto Sell)",
    ConfigurationSaving = {
       Enabled = true,
-      FolderName = "ReyFile_Configs", -- Thư mục lưu trong exploit của bạn
+      FolderName = "ReyFile_Configs",
       FileName = "MainConfig"
    },
    KeySystem = false
@@ -22,14 +22,14 @@ local flags = {
     autoC = false,
     autoD = false,
     autoCast = false,
-    autoSlot1Smart = false
+    autoSlot1Smart = false,
+    autoSell = false -- Biến trạng thái mới cho Sell
 }
 
 -- TAB AUTO PHÍM
 local AutoTab = Window:CreateTab("Auto Phím", 4483345998)
-AutoTab:CreateSection("🔥 Spam phím full (Z/X/C/D) - Tự động lưu")
+AutoTab:CreateSection("🔥 Spam phím full (Z/X/C/D)")
 
--- Hàm tạo Loop chung để tránh lặp code và dễ quản lý
 local function startLoop(keyCode, flagName)
     task.spawn(function()
         while flags[flagName] do
@@ -42,7 +42,7 @@ local function startLoop(keyCode, flagName)
 end
 
 AutoTab:CreateToggle({
-   Name = "🚀 Auto Z (FIX 100%)",
+   Name = "🚀 Auto Z",
    CurrentValue = false,
    Flag = "ToggleZFix", 
    Callback = function(Value)
@@ -52,7 +52,7 @@ AutoTab:CreateToggle({
 })
 
 AutoTab:CreateToggle({
-   Name = "⚡ Auto X (FIX 100%)",
+   Name = "⚡ Auto X",
    CurrentValue = false,
    Flag = "ToggleXFix",
    Callback = function(Value)
@@ -62,7 +62,7 @@ AutoTab:CreateToggle({
 })
 
 AutoTab:CreateToggle({
-   Name = "🟢 Auto C liên tục",
+   Name = "🟢 Auto C",
    CurrentValue = false,
    Flag = "ToggleCAuto",
    Callback = function(Value)
@@ -72,7 +72,7 @@ AutoTab:CreateToggle({
 })
 
 AutoTab:CreateToggle({
-   Name = "🔵 Auto D liên tục",
+   Name = "🔵 Auto D",
    CurrentValue = false,
    Flag = "ToggleDAuto",
    Callback = function(Value)
@@ -83,6 +83,8 @@ AutoTab:CreateToggle({
 
 -- TAB TITAN FISCH
 local FischTab = Window:CreateTab("Titan Fisch", 7072742186)
+
+FischTab:CreateSection("🎣 Câu cá & Tự động")
 
 FischTab:CreateToggle({
    Name = "🎣 Auto Thả Cần (Full Power)",
@@ -118,26 +120,56 @@ FischTab:CreateToggle({
          task.spawn(function()
             while flags.autoSlot1Smart do
                local char = player.Character
-               local hasTool = char and char:FindFirstChildOfClass("Tool")
-               if not hasTool then
+               if not (char and char:FindFirstChildOfClass("Tool")) then
                   vim:SendKeyEvent(true, Enum.KeyCode.One, false, game)
-                  task.wait(math.random(4, 8) / 100)
+                  task.wait(0.05)
                   vim:SendKeyEvent(false, Enum.KeyCode.One, false, game)
-                  task.wait(math.random(15, 25) / 100)
-               else
-                  task.wait(0.5)
                end
+               task.wait(0.5)
             end
          end)
       end
    end,
 })
 
--- QUAN TRỌNG: Lệnh Load Config tự động
+FischTab:CreateSection("💰 Kinh tế")
+
+FischTab:CreateToggle({
+   Name = "💵 Auto Sell (Bán tất cả)",
+   CurrentValue = false,
+   Flag = "ToggleAutoSell",
+   Callback = function(Value)
+      flags.autoSell = Value
+      if Value then
+         task.spawn(function()
+            while flags.autoSell do
+               -- Lệnh bán bạn yêu cầu (đã thêm tên Remote mặc định của Fisch)
+               local args = {{}}
+               pcall(function()
+                  game:GetService("ReplicatedStorage"):WaitForChild("Communication"):WaitForChild("Functions"):WaitForChild("SellEverything"):InvokeServer(unpack(args))
+               end)
+               task.wait(5) -- Bán mỗi 5 giây để tránh bị kick/lag
+            end
+         end)
+      end
+   end,
+})
+
+-- Nút bán nhanh thủ công
+FischTab:CreateButton({
+   Name = "⚡ Bán ngay lập tức",
+   Callback = function()
+      local args = {{}}
+      game:GetService("ReplicatedStorage"):WaitForChild("Communication"):WaitForChild("Functions"):WaitForChild("SellEverything"):InvokeServer(unpack(args))
+      Rayfield:Notify({Title = "Hệ thống", Content = "Đã gửi lệnh bán!", Duration = 2})
+   end,
+})
+
+-- QUAN TRỌNG: Load Config để tự bật các tính năng khi mở Script
 Rayfield:LoadConfiguration()
 
 Rayfield:Notify({
-   Title = "Cấu hình đã tải!",
-   Content = "Các cài đặt cũ của bạn đã được tự động áp dụng.",
+   Title = "Thành công!",
+   Content = "Đã tích hợp Auto Sell & Load Config.",
    Duration = 5,
 })
