@@ -1,0 +1,143 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "ReyFile | AUTO SAVE & LOAD",
+   LoadingTitle = "Đang tải cấu hình cũ...",
+   LoadingSubtitle = "by Gemini (Auto-Config Mode)",
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = "ReyFile_Configs", -- Thư mục lưu trong exploit của bạn
+      FileName = "MainConfig"
+   },
+   KeySystem = false
+})
+
+local vim = game:GetService("VirtualInputManager")
+local player = game.Players.LocalPlayer
+
+-- Khởi tạo biến trạng thái
+local flags = {
+    autoZ = false,
+    autoX = false,
+    autoC = false,
+    autoD = false,
+    autoCast = false,
+    autoSlot1Smart = false
+}
+
+-- TAB AUTO PHÍM
+local AutoTab = Window:CreateTab("Auto Phím", 4483345998)
+AutoTab:CreateSection("🔥 Spam phím full (Z/X/C/D) - Tự động lưu")
+
+-- Hàm tạo Loop chung để tránh lặp code và dễ quản lý
+local function startLoop(keyCode, flagName)
+    task.spawn(function()
+        while flags[flagName] do
+            vim:SendKeyEvent(true, keyCode, false, game)
+            task.wait(math.random(3, 7) / 100)
+            vim:SendKeyEvent(false, keyCode, false, game)
+            task.wait(math.random(10, 18) / 100)
+        end
+    end)
+end
+
+AutoTab:CreateToggle({
+   Name = "🚀 Auto Z (FIX 100%)",
+   CurrentValue = false,
+   Flag = "ToggleZFix", 
+   Callback = function(Value)
+      flags.autoZ = Value
+      if Value then startLoop(Enum.KeyCode.Z, "autoZ") end
+   end,
+})
+
+AutoTab:CreateToggle({
+   Name = "⚡ Auto X (FIX 100%)",
+   CurrentValue = false,
+   Flag = "ToggleXFix",
+   Callback = function(Value)
+      flags.autoX = Value
+      if Value then startLoop(Enum.KeyCode.X, "autoX") end
+   end,
+})
+
+AutoTab:CreateToggle({
+   Name = "🟢 Auto C liên tục",
+   CurrentValue = false,
+   Flag = "ToggleCAuto",
+   Callback = function(Value)
+      flags.autoC = Value
+      if Value then startLoop(Enum.KeyCode.C, "autoC") end
+   end,
+})
+
+AutoTab:CreateToggle({
+   Name = "🔵 Auto D liên tục",
+   CurrentValue = false,
+   Flag = "ToggleDAuto",
+   Callback = function(Value)
+      flags.autoD = Value
+      if Value then startLoop(Enum.KeyCode.D, "autoD") end
+   end,
+})
+
+-- TAB TITAN FISCH
+local FischTab = Window:CreateTab("Titan Fisch", 7072742186)
+
+FischTab:CreateToggle({
+   Name = "🎣 Auto Thả Cần (Full Power)",
+   CurrentValue = false,
+   Flag = "AutoCastFix",
+   Callback = function(Value)
+      flags.autoCast = Value
+      if Value then
+         task.spawn(function()
+            while flags.autoCast do
+               local char = player.Character
+               if char and char:FindFirstChildOfClass("Tool") then
+                  local mouse = player:GetMouse()
+                  vim:SendMouseButtonEvent(mouse.X, mouse.Y, 0, true, game, 0)
+                  task.wait(0.5 + math.random(-5, 5) / 100)
+                  vim:SendMouseButtonEvent(mouse.X, mouse.Y, 0, false, game, 0)
+                  task.wait(0.5 + math.random(-10, 10) / 100)
+               end
+               task.wait(0.2)
+            end
+         end)
+      end
+   end,
+})
+
+FischTab:CreateToggle({
+   Name = "🧠 Smart Auto Slot 1",
+   CurrentValue = false,
+   Flag = "SmartSlot1",
+   Callback = function(Value)
+      flags.autoSlot1Smart = Value
+      if Value then
+         task.spawn(function()
+            while flags.autoSlot1Smart do
+               local char = player.Character
+               local hasTool = char and char:FindFirstChildOfClass("Tool")
+               if not hasTool then
+                  vim:SendKeyEvent(true, Enum.KeyCode.One, false, game)
+                  task.wait(math.random(4, 8) / 100)
+                  vim:SendKeyEvent(false, Enum.KeyCode.One, false, game)
+                  task.wait(math.random(15, 25) / 100)
+               else
+                  task.wait(0.5)
+               end
+            end
+         end)
+      end
+   end,
+})
+
+-- QUAN TRỌNG: Lệnh Load Config tự động
+Rayfield:LoadConfiguration()
+
+Rayfield:Notify({
+   Title = "Cấu hình đã tải!",
+   Content = "Các cài đặt cũ của bạn đã được tự động áp dụng.",
+   Duration = 5,
+})
