@@ -1,0 +1,372 @@
+-- SCJ Horizons V2.9 | ULTIMATE HYBRID - Updated: Mua hết seed mới TP, Ưu tiên mua > farm, Bán trước khi mua
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Window = Rayfield:CreateWindow({
+    Name = "SCJ Horizons V2.9 | ALL-IN-ONE",
+    LoadingTitle = "Đang cấu hình hệ thống Hybrid...",
+    LoadingSubtitle = "by Gemini & Ut | Mua hết seed + Ưu tiên mua > farm",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "IJC_Ultimate",
+        FileName = "Config_V29"
+    },
+    KeySystem = false,
+})
+
+local _G = {
+    MainEnabled = false,
+    AutoSellActive = false,
+    InventoryLimit = 299,
+    AutoBuySeed = {},
+    GardenCFrame = nil,
+    BuyLoopActive = {},
+    FixLagEnabled = false,
+    AntiAFKEnabled = false,
+    SafetyMargin = 20  -- dư 20 slot trước khi bán để tránh đầy giữa chừng
+}
+
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Lighting = game:GetService("Lighting")
+local VirtualUser = game:GetService("VirtualUser")
+local Player = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local RemoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
+local PurchaseShopItem = RemoteEvents:WaitForChild("PurchaseShopItem")
+local GetShopData = RemoteEvents:WaitForChild("GetShopData")
+local SellItems = RemoteEvents:WaitForChild("SellItems")
+
+local SHOP_POSITION = CFrame.new(176.70369, 201.054993, 672)
+local SELL_POSITION = CFrame.new(149.3974, 201.054993, 671.999878)
+
+local ShopCache = { data = nil, lastUpdate = 0 }
+
+-- ==========================================
+-- HÀM HỖ TRỢ
+-- ==========================================
+local function GetInvCount()
+    local total = 0
+    pcall(function()
+        if Player.Backpack then
+            for _, item in ipairs(Player.Backpack:GetChildren()) do
+                local amt = item:FindFirstChild("Amount") or item:FindFirstChild("Quantity") or item:FindFirstChild("Value")
+                total += (amt and amt.Value or 1)
+            end
+        end
+        if Player.Character then
+            for _, item in ipairs(Player.Character:GetChildren()) do
+                if item:IsA("Tool") then
+                    local amt = item:FindFirstChild("Amount") or item:FindFirstChild("Quantity")
+                    total += (amt and amt.Value or 1)
+                end
+            end
+        end
+    end)
+    return total
+end
+
+local function GetStock(seedName)
+    if tick() - ShopCache.lastUpdate > 1.0 then
+        local success, data = pcall(function() return GetShopData:InvokeServer("SeedShop") end)
+        if success then 
+            ShopCache.data = data 
+            ShopCache.lastUpdate = tick() 
+        end
+    end
+    return (ShopCache.data and ShopCache.data.Items and ShopCache.data.Items[seedName]) and (ShopCache.data.Items[seedName].Amount or 0) or 0
+end
+
+local function SellAll()
+    pcall(function() SellItems:InvokeServer("SellAll") end)
+end
+
+local function TeleportTo(cf)
+    if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+        Player.Character.HumanoidRootPart.CFrame = cf + Vector3.new(0, 3, 0)
+    end
+end
+
+local function ApplyFixLag(enable)
+    Lighting.GlobalShadows = not enable
+    Lighting.Brightness = enable and 1 or 2
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") then
+            obj.Enabled = not enable
+        end
+        if enable and (obj:IsA("BasePart") or obj:IsA("MeshPart")) then
+            obj.CastShadow = false
+        end
+    end
+end
+
+-- Anti-AFK
+local AntiAFKConnection
+local function StartAntiAFK()
+    if AntiAFKConnection then AntiAFKConnection:Disconnect() end
+    AntiAFKConnection = Player.Idled:Connect(function()
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+        task.wait(0.1)
+        VirtualUser:ClickButton2(Vector2.new())
+    end)
+end
+
+local function StopAntiAFK()
+    if AntiAFKConnection then AntiAFKConnection:Disconnect() AntiAFKConnection = nil end
+end
+
+-- ==========================================
+-- ULTRA BUY LOOP - MUA HẾT SEED MỚI TP VỀ + BÁN TRƯỚC KHI MUA TIẾP
+-- ==========================================
+local function StartBuyLoop(key, seedName)
+    if _G.BuyLoopActive[key] then return end
+    _G.BuyLoopActive[key] = true
+    
+    task.spawn(function()
+        while _G.AutoBuySeed[key] do
+            local stock = GetStock(seedName)
+            if stock <= 0 then
+                task.wait(2)  -- chờ stock refresh
+                continue
+            end
+            
+            -- Ưu tiên bán nếu sắp đầy
+            local inv = GetInvCount()
+            if inv >= _G.InventoryLimit - _G.SafetyMargin then
+                TeleportTo(SELL_POSITION)
+                task.wait(0.8)
+                SellAll()
+                task.wait(0.7)
+                TeleportTo(SHOP_POSITION)
+                task.wait(0.5)
+            end
+            
+            -- TP đến shop và mua HẾT stock
+            TeleportTo(SHOP_POSITION)
+            task.wait(0.4)
+            
+            local max_attempts = 150  -- an toàn, tránh loop vô hạn
+            while _G.AutoBuySeed[key] and stock > 0 and max_attempts > 0 do
+                inv = GetInvCount()
+                if inv >= _G.InventoryLimit - _G.SafetyMargin then
+                    -- bán lại nếu đầy giữa chừng
+                    TeleportTo(SELL_POSITION)
+                    task.wait(0.8)
+                    SellAll()
+                    task.wait(0.7)
+                    TeleportTo(SHOP_POSITION)
+                    task.wait(0.5)
+                end
+                
+                local before = GetInvCount()
+                pcall(function() PurchaseShopItem:InvokeServer("SeedShop", seedName) end)
+                task.wait(0.001)
+                
+                if GetInvCount() > before then
+                    stock = GetStock(seedName)  -- update stock
+                else
+                    -- miss -> refresh cache
+                    ShopCache.lastUpdate = 0
+                    stock = GetStock(seedName)
+                end
+                
+                max_attempts -= 1
+            end
+            
+            -- Mua xong hoặc hết stock -> về vườn
+            TeleportTo(_G.GardenCFrame or CFrame.new(0, 200, 0))
+            task.wait(1.2)
+        end
+        _G.BuyLoopActive[key] = nil
+    end)
+end
+
+-- ==========================================
+-- TABS
+-- ==========================================
+local TabMain = Window:CreateTab("Main Farm", 4483362458)
+
+TabMain:CreateButton({
+    Name = "📍 LƯU VỊ TRÍ VƯỜN (BẮT BUỘC)",
+    Callback = function()
+        if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+            _G.GardenCFrame = Player.Character.HumanoidRootPart.CFrame
+            Rayfield:Notify({Title = "Thành công", Content = "Đã lưu vị trí vườn!", Duration = 3})
+        end
+    end,
+})
+
+TabMain:CreateToggle({
+    Name = "🌾 Auto Harvest (Stable + Zoom 130)",
+    CurrentValue = false,
+    Callback = function(Value)
+        _G.MainEnabled = Value
+        if Value then
+            task.spawn(function()
+                while _G.MainEnabled do
+                    local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        Camera.CameraType = Enum.CameraType.Scriptable
+                        Camera.CFrame = CFrame.new(hrp.Position + Vector3.new(0,130,0), hrp.Position)
+                    end
+                    task.wait()
+                end
+                Camera.CameraType = Enum.CameraType.Custom
+            end)
+        end
+    end,
+})
+
+TabMain:CreateToggle({
+    Name = "💰 Auto Sell (TP khi đầy)",
+    CurrentValue = false,
+    Callback = function(Value) _G.AutoSellActive = Value end,
+})
+
+-- Shop Seed Tab
+local TabShop = Window:CreateTab("Shop Seed", 4483362458)
+
+local seedList = {
+    "Carrot Seed", "Corn Seed", "Onion Seed", "Strawberry Seed", "Tomato Seed",
+    "Wheat Seed", "Cabbage Seed", "Mushroom Seed", "Beetroot Seed", "Apple Seed",
+    "Rose Seed", "Banana Seed", "Plum Seed", "Potato Seed", "Cherry Seed",
+    "Bamboo Seed", "Mango Seed"
+}
+
+local seedToggles = {}
+
+for _, name in ipairs(seedList) do
+    local key = name:gsub(" Seed", "")
+    local tog = TabShop:CreateToggle({
+        Name = "🚀 Ultra Buy " .. name .. " (Mua hết mới về)",
+        CurrentValue = false,
+        Callback = function(Value)
+            _G.AutoBuySeed[key] = Value
+            if Value then 
+                StartBuyLoop(key, name)
+                Rayfield:Notify({Title = "Mua bật", Content = name .. " - Ưu tiên mua hết", Duration = 2.5})
+            end
+        end,
+    })
+    seedToggles[key] = tog
+end
+
+-- Debug & Optimize Tab
+local TabDebug = Window:CreateTab("Fix Lag & Debug", 7072718362)
+
+TabDebug:CreateSection("⚡ Tối ưu hóa")
+TabDebug:CreateToggle({
+    Name = "⚡ Bật Fix Lag Super",
+    CurrentValue = false,
+    Callback = function(Value)
+        _G.FixLagEnabled = Value
+        ApplyFixLag(Value)
+    end,
+})
+
+TabDebug:CreateSection("🛡️ Chống AFK")
+TabDebug:CreateToggle({
+    Name = "🛡️ Auto Anti-AFK",
+    CurrentValue = false,
+    Callback = function(Value)
+        _G.AntiAFKEnabled = Value
+        if Value then StartAntiAFK() else StopAntiAFK() end
+    end,
+})
+
+TabDebug:CreateSection("🛠️ Công cụ")
+TabDebug:CreateButton({
+    Name = "🚀 BUY ALL SEEDS (Toggle all)",
+    Callback = function()
+        local shouldEnable = false
+        local countOn = 0
+        for _, tog in pairs(seedToggles) do if tog.CurrentValue then countOn += 1 end end
+        shouldEnable = (countOn <= (#seedList / 2))
+        
+        for key, tog in pairs(seedToggles) do
+            tog:Set(shouldEnable)
+            _G.AutoBuySeed[key] = shouldEnable
+            if shouldEnable then StartBuyLoop(key, key .. " Seed") end
+        end
+        Rayfield:Notify({Title = shouldEnable and "BẬT HẾT" or "TẮT HẾT", Content = "Mua seed", Duration = 4})
+    end
+})
+
+TabDebug:CreateButton({
+    Name = "📦 Check Stock (F9)",
+    Callback = function()
+        ShopCache.lastUpdate = 0
+        GetStock("Carrot Seed")
+        if ShopCache.data and ShopCache.data.Items then
+            print("--- STOCK ---")
+            for n, i in pairs(ShopCache.data.Items) do print(n .. ": " .. (i.Amount or 0)) end
+        end
+    end
+})
+
+TabDebug:CreateButton({
+    Name = "💾 Lưu Config",
+    Callback = function()
+        Rayfield:SaveConfiguration()
+    end
+})
+
+-- ==========================================
+-- MAIN LOOP: HARVEST + AUTO SELL (khi không mua)
+-- ==========================================
+task.spawn(function()
+    while true do
+        local anyBuyActive = next(_G.AutoBuySeed) ~= nil
+        
+        -- Nếu đang bật mua seed → ưu tiên mua/bán trước, tạm dừng harvest
+        if anyBuyActive then
+            -- Auto sell khi đầy (dự phòng)
+            if _G.AutoSellActive and GetInvCount() >= _G.InventoryLimit then
+                TeleportTo(SELL_POSITION)
+                task.wait(0.8)
+                SellAll()
+                task.wait(0.7)
+                TeleportTo(_G.GardenCFrame or CFrame.new(0, 200, 0))
+            end
+            task.wait(0.5)
+        else
+            -- Không mua → farm bình thường
+            if _G.MainEnabled then
+                pcall(function()
+                    for _, v in pairs(workspace:GetDescendants()) do
+                        if v:IsA("ProximityPrompt") and v.Enabled then
+                            local txt = ((v.ObjectText or "") .. (v.ActionText or "")):lower()
+                            if txt:find("harvest") and not (txt:find("wheat") or txt:find("cabbage")) then
+                                v.HoldDuration = 0
+                                v.MaxActivationDistance = 120
+                                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+                                task.wait(0.04)
+                                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+                            end
+                        end
+                    end
+                end)
+            end
+            
+            -- Auto sell độc lập
+            if _G.AutoSellActive and GetInvCount() >= _G.InventoryLimit then
+                TeleportTo(SELL_POSITION)
+                task.wait(0.8)
+                SellAll()
+                task.wait(0.5)
+                TeleportTo(_G.GardenCFrame or CFrame.new(0, 200, 0))
+            end
+        end
+        
+        task.wait(0.12)
+    end
+end)
+
+Rayfield:LoadConfiguration()
+
+-- Khôi phục Anti-AFK nếu config bật
+task.delay(1, function()
+    if _G.AntiAFKEnabled then StartAntiAFK() end
+end)
+
+print("SCJ Horizons V2.9 - Ưu tiên MUA HẾT SEED trước → BÁN → MỚI farm!")
