@@ -1,0 +1,200 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "ReyFile | SMART AUTO SELL & EQUIP",
+   LoadingTitle = "Đang chuẩn bị hệ thanh...",
+   LoadingSubtitle = "by Gemini (Smart Logic Mode)",
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = "ReyFile_Configs",
+      FileName = "MainConfig"
+   },
+   KeySystem = false
+})
+
+local vim = game:GetService("VirtualInputManager")
+local player = game.Players.LocalPlayer
+local flags = {
+    autoZ = false, autoX = false, autoC = false, autoV = false,
+    autoCast = false, autoSell = false, autoEquip = false
+}
+
+local sellPosition = Vector3.new(170.08, 23.4, 72.58)
+local farmPosition = nil 
+local sellDelay = 25 
+
+-- Chức năng ẩn: Instant E (0s)
+local function makePromptsInstant()
+    for _, prompt in pairs(game:GetDescendants()) do
+        if prompt:IsA("ProximityPrompt") then prompt.HoldDuration = 0 end
+    end
+    game.DescendantAdded:Connect(function(obj)
+        if obj:IsA("ProximityPrompt") then obj.HoldDuration = 0 end
+    end)
+end
+makePromptsInstant()
+
+-- Hàm Dịch Chuyển
+local function instantTP(pos)
+    local char = player.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local target = (typeof(pos) == "Vector3" and CFrame.new(pos) or pos)
+        char.HumanoidRootPart.CFrame = target
+        char.HumanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+    end
+end
+
+-- Hàm lấy cần câu (Equip Tool 1)
+local function equipTool1()
+    local backpack = player:FindFirstChild("Backpack")
+    local char = player.Character
+    if char and not char:FindFirstChildOfClass("Tool") then
+        local tool = backpack:FindFirstChildOfClass("Tool") -- Lấy tool đầu tiên trong túi
+        if tool then
+            char.Humanoid:EquipTool(tool)
+        end
+    end
+end
+
+-- Hàm cất toàn bộ cần câu
+local function unequipAll()
+    local char = player.Character
+    if char and char:FindFirstChild("Humanoid") then
+        char.Humanoid:UnequipTools()
+    end
+end
+
+-- [TAB AUTO PHÍM]
+local AutoTab = Window:CreateTab("Auto Phím", 4483345998)
+local function startLoop(keyCode, flagName)
+    task.spawn(function()
+        while flags[flagName] do
+            vim:SendKeyEvent(true, keyCode, false, game)
+            task.wait(math.random(3, 7) / 100)
+            vim:SendKeyEvent(false, keyCode, false, game)
+            task.wait(math.random(10, 18) / 100)
+        end
+    end)
+end
+AutoTab:CreateToggle({Name = "🚀 Auto Z", CurrentValue = false, Flag = "TZ", Callback = function(V) flags.autoZ = V if V then startLoop(Enum.KeyCode.Z, "autoZ") end end})
+AutoTab:CreateToggle({Name = "⚡ Auto X", CurrentValue = false, Flag = "TX", Callback = function(V) flags.autoX = V if V then startLoop(Enum.KeyCode.X, "autoX") end end})
+AutoTab:CreateToggle({Name = "🟢 Auto C", CurrentValue = false, Flag = "TC", Callback = function(V) flags.autoC = V if V then startLoop(Enum.KeyCode.C, "autoC") end end})
+AutoTab:CreateToggle({Name = "🔵 Auto V", CurrentValue = false, Flag = "TV", Callback = function(V) flags.autoV = V if V then startLoop(Enum.KeyCode.V, "autoV") end end})
+
+-- [TAB TITAN FISCH]
+local FischTab = Window:CreateTab("Titan Fisch", 7072742186)
+
+FischTab:CreateSection("📍 SETUP VỊ TRÍ")
+FischTab:CreateButton({
+   Name = "🚩 BƯỚC 1: SET TỌA ĐỘ FARM",
+   Callback = function()
+      if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+          farmPosition = player.Character.HumanoidRootPart.CFrame
+          Rayfield:Notify({Title = "Hệ thống", Content = "Đã lưu vị trí Farm!", Duration = 2})
+      end
+   end,
+})
+
+FischTab:CreateSection("🎣 HỖ TRỢ CẦN CÂU")
+FischTab:CreateToggle({
+   Name = "🎒 Auto Equip Tool 1",
+   CurrentValue = false,
+   Flag = "AutoEquipTool",
+   Callback = function(Value)
+      flags.autoEquip = Value
+      if Value then
+         task.spawn(function()
+            while flags.autoEquip do
+               -- Chỉ tự cầm tool nếu không trong trạng thái đang đi bán
+               if not _G.IsSelling then
+                  equipTool1()
+               end
+               task.wait(1)
+            end
+         end)
+      end
+   end,
+})
+
+FischTab:CreateToggle({
+   Name = "🎣 Auto Thả Cần",
+   CurrentValue = false,
+   Flag = "AutoCast",
+   Callback = function(Value)
+      flags.autoCast = Value
+      if Value then
+         task.spawn(function()
+            while flags.autoCast do
+               if not _G.IsSelling and player.Character and player.Character:FindFirstChildOfClass("Tool") then
+                  vim:SendMouseButtonEvent(500, 500, 0, true, game, 0)
+                  task.wait(1)
+                  vim:SendMouseButtonEvent(500, 500, 0, false, game, 0)
+               end
+               task.wait(0.8)
+            end
+         end)
+      end
+   end,
+})
+
+FischTab:CreateSection("💰 KINH TẾ (SMART SELL)")
+FischTab:CreateInput({
+   Name = "Giây chờ đi bán",
+   PlaceholderText = "25",
+   Callback = function(T) sellDelay = tonumber(T) or 25 end,
+})
+
+FischTab:CreateToggle({
+   Name = "💵 Auto Sell & Return (Auto On/Off Cast)",
+   CurrentValue = false,
+   Flag = "ToggleAutoSellUI",
+   Callback = function(Value)
+      flags.autoSell = Value
+      if Value then
+         task.spawn(function()
+            while flags.autoSell do
+               if not farmPosition then break end
+               
+               _G.IsSelling = true -- Đánh dấu đang đi bán
+               
+               -- 1. Chuẩn bị: Cất cần câu
+               unequipAll()
+               task.wait(0.3)
+               
+               -- 2. TP đi bán
+               instantTP(sellPosition)
+               task.wait(1)
+               
+               -- 3. Mở Menu Sell (Nhấn E)
+               for i=1,5 do
+                  vim:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+                  task.wait(0.05)
+                  vim:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+                  task.wait(0.1)
+                  if player.PlayerGui.SellGUI.Enabled then break end
+               end
+               
+               -- 4. Nhấn nút ALL
+               pcall(function()
+                  local sellGui = player.PlayerGui:WaitForChild("SellGUI")
+                  if sellGui.Enabled then
+                     firesignal(sellGui.Canvas.Main.All.MouseButton1Click)
+                  end
+               end)
+               
+               task.wait(1) -- Đợi bán xong
+               
+               -- 5. Quay về và bật lại chế độ câu
+               instantTP(farmPosition)
+               task.wait(0.5)
+               
+               _G.IsSelling = false -- Kết thúc đi bán
+               
+               task.wait(sellDelay) 
+            end
+         end)
+      end
+   end,
+})
+
+Rayfield:LoadConfiguration()
